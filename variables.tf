@@ -3,10 +3,10 @@ variable "cluster_name" {
   type        = string
 }
 
-variable "uname" {
-  description = "Unique name of the rkegov cluster to create, overrides clustername + unique_prefix generation"
-  type        = string
-  default     = ""
+variable "unique_suffix" {
+  description = "Enables/disables generation of a unique suffix to cluster name"
+  type        = bool
+  default     = true
 }
 
 variable "vpc_id" {

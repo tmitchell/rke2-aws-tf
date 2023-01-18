@@ -25,6 +25,12 @@ variable "tags" {
   type        = map(string)
 }
 
+variable "token" {
+  description = "Pre-calculated join token for the cluster"
+  default     = ""
+  type        = string
+}
+
 #
 # Server pool variables
 #

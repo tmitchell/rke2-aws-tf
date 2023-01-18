@@ -3,10 +3,10 @@ variable "cluster_name" {
   type        = string
 }
 
-variable "uname" {
-  description = "Unique name of the rkegov cluster to create, overrides clustername + unique_prefix generation"
-  type        = string
-  default     = ""
+variable "unique_suffix" {
+  description = "Enables/disables generation of a unique suffix to cluster name"
+  type        = bool
+  default     = true
 }
 
 variable "vpc_id" {
@@ -112,6 +112,12 @@ variable "controlplane_allowed_cidrs" {
   default     = ["0.0.0.0/0"]
 }
 
+variable "controlplane_access_logs_bucket" {
+  description = "Bucket name for logging requests to control plane load balancer"
+  type        = string
+  default     = "disabled"
+}
+
 #
 # RKE2 Variables
 #
@@ -149,4 +155,10 @@ variable "enable_ccm" {
   description = "Toggle enabling the cluster as aws aware, this will ensure the appropriate IAM policies are present"
   type        = bool
   default     = false
+}
+
+variable "wait_for_capacity_timeout" {
+  description = "How long Terraform should wait for ASG instances to be healthy before timing out."
+  type        = string
+  default     = "10m"
 }

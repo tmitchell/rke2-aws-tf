@@ -1,8 +1,8 @@
 locals {
-  # Handle case where target group/load balancer name exceeds 32 character limit
-  controlplane_name = substr("${var.name}-rke2-cp", 0, 31)
-  server_name       = substr("${var.name}-rke2-server", 0, 31)
-  supervisor_name   = substr("${var.name}-rke2-supervisor", 0, 31)
+  # Handle case where target group/load balancer name exceeds 32 character limit without creating illegal names
+  controlplane_name = "${substr(var.name, 0, 23)}-rke2-cp"
+  server_name       = "${substr(var.name, 0, 18)}-rke2-server"
+  supervisor_name   = "${substr(var.name, 0, 15)}-rke2-supervisor"
 }
 
 resource "aws_security_group" "controlplane" {
@@ -72,6 +72,12 @@ resource "aws_elb" "controlplane" {
     target              = "TCP:${var.cp_port}"
     timeout             = 3
     unhealthy_threshold = 3
+  }
+
+  access_logs {
+    # the bucket name isn't allowed to be empty in this block, so use its default value as the flag
+    bucket  = var.access_logs_bucket
+    enabled = var.access_logs_bucket != "disabled"
   }
 
   tags = merge({}, var.tags)

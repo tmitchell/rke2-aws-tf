@@ -1,6 +1,6 @@
 locals {
   # Create a unique cluster name we'll prefix to all resources created and ensure it's lowercase
-  uname = var.uname == "" ? lower("${var.cluster_name}-${random_string.uid.result}") : var.uname
+  uname = var.unique_suffix ? lower("${var.cluster_name}-${random_string.uid.result}") : lower(var.cluster_name)
 
   default_tags = {
     "ClusterType" = "rke2",
@@ -53,6 +53,7 @@ module "cp_lb" {
 
   enable_cross_zone_load_balancing = var.controlplane_enable_cross_zone_load_balancing
   internal                         = var.controlplane_internal
+  access_logs_bucket               = var.controlplane_access_logs_bucket
 
   cp_ingress_cidr_blocks            = var.controlplane_allowed_cidrs
   cp_supervisor_ingress_cidr_blocks = var.controlplane_allowed_cidrs
@@ -187,6 +188,7 @@ module "servers" {
   vpc_security_group_ids      = concat([aws_security_group.server.id, aws_security_group.cluster.id], var.extra_security_group_ids)
   spot                        = var.spot
   load_balancers              = [module.cp_lb.name]
+  wait_for_capacity_timeout   = var.wait_for_capacity_timeout
 
   # Overrideable variables
   userdata             = data.template_cloudinit_config.this.rendered

@@ -2,7 +2,7 @@
 
 `rke2` is lightweight, easy to use, and has minimal dependencies.  As such, there is a tremendous amount of flexibility for deployments that can be tailored to best suit you and your organization's needs.
 
-This repository is inteded to clearly demonstrate one method of deploying `rke2` in a highly available, resilient, scalable, and simple method on AWS. It is by no means the only supported soluiton for running `rke2` on AWS.
+This repository is inteded to clearly demonstrate one method of deploying `rke2` in a highly available, resilient, scalable, and simple method on AWS. It is by no means the only supported solution for running `rke2` on AWS.
 
 We highly recommend you use the modules in this repository as stepping stones in solutions that meet the needs of your workflow and organization.  If you have suggestions or areas of improvements, we would [love to hear them](https://slack.rancher.io/)!
 
@@ -27,7 +27,7 @@ module "rke2_agents" {
   vpc_id  = "vpc-###"
   subnets = ["subnet-###"]
   ami     = "ami-###"
-  
+
   # Required input sourced from parent rke2 module, contains configuration that agents use to join existing cluster
   cluster_data = module.rke2.cluster_data
 }
@@ -98,7 +98,7 @@ Servers and agents need to be able to fetch the cluster join token
 }
 ```
 
-**Note:** The S3 bucket will be dynamically created during cluster creation, in order to pre create an iam policy that points to this bucket, the use of wildcards is recommended. 
+**Note:** The S3 bucket will be dynamically created during cluster creation, in order to pre create an iam policy that points to this bucket, the use of wildcards is recommended.
 For example: `s3:::us-gov-west-1:${var.cluster_name}-*`
 
 ##### Get Autoscaling Instances
@@ -154,6 +154,7 @@ Optional policies have the option of being created by default, but are specified
 | ami | Server pool ami | `string` | n/a | yes |
 | block\_device\_mappings | Server pool block device mapping configuration | `map(string)` | <pre>{<br>  "encrypted": false,<br>  "size": 30<br>}</pre> | no |
 | cluster\_name | Name of the rkegov cluster to create | `string` | n/a | yes |
+| controlplane\_access\_logs\_bucket | Set to bucket name to log requests to load balancer | `string` | `"disabled"` | no |
 | controlplane\_allowed\_cidrs | Server pool security group allowed cidr ranges | `list(string)` | <pre>[<br>  "0.0.0.0/0"<br>]</pre> | no |
 | controlplane\_enable\_cross\_zone\_load\_balancing | Toggle between controlplane cross zone load balancing | `bool` | `true` | no |
 | controlplane\_internal | Toggle between public or private control plane load balancer | `bool` | `true` | no |
@@ -173,7 +174,9 @@ Optional policies have the option of being created by default, but are specified
 | ssh\_authorized\_keys | Server pool list of public keys to add as authorized ssh keys | `list(string)` | `[]` | no |
 | subnets | List of subnet IDs to create resources in | `list(string)` | n/a | yes |
 | tags | Map of tags to add to all resources created | `map(string)` | `{}` | no |
+| unique\_suffix | Enables/disables generation of a unique suffix to cluster name | `bool` | `true` | yes |
 | vpc\_id | VPC ID to create resources in | `string` | n/a | yes |
+| wait_for_capacity_timeout | How long Terraform should wait for ASG instances to be healthy before timing out. | `string` | `"10m"` | no |
 
 ## Outputs
 
@@ -191,4 +194,3 @@ Optional policies have the option of being created by default, but are specified
 | server\_nodepool\_name | n/a |
 | server\_sg | n/a |
 | server\_url | n/a |
-

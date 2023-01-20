@@ -1,3 +1,7 @@
+output "bucket_arn" {
+  value = local.cluster_data.token.bucket_arn
+}
+
 output "cluster_name" {
   description = "Name of the rke2 cluster"
   value       = local.uname

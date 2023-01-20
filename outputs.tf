@@ -1,5 +1,5 @@
-output "bucket_arn" {
-  value = local.cluster_data.token.bucket_arn
+output "bucket" {
+  value = module.statestore.bucket
 }
 
 output "cluster_name" {

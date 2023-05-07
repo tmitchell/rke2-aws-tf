@@ -2,6 +2,7 @@
 
 export TYPE="${type}"
 export CCM="${ccm}"
+export CCM_EXTERNAL="${ccm_external}"
 
 # info logs the given argument at info log level.
 info() {
@@ -25,7 +26,7 @@ timestamp() {
 
 config() {
   mkdir -p "/etc/rancher/rke2"
-  cat <<EOF > "/etc/rancher/rke2/config.yaml"
+  cat <<EOF >> "/etc/rancher/rke2/config.yaml"
 # Additional user defined configuration
 ${config}
 EOF
@@ -38,7 +39,8 @@ append_config() {
 # The most simple "leader election" you've ever seen in your life
 elect_leader() {
   # Fetch other running instances in ASG
-  instance_id=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+  TOKEN=$(curl -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+  instance_id=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/instance-id)
   asg_name=$(aws autoscaling describe-auto-scaling-instances --instance-ids "$instance_id" --query 'AutoScalingInstances[*].AutoScalingGroupName' --output text)
   instances=$(aws autoscaling describe-auto-scaling-groups --auto-scaling-group-name "$asg_name" --query 'AutoScalingGroups[*].Instances[?HealthStatus==`Healthy`].InstanceId' --output text)
 
@@ -112,7 +114,8 @@ local_cp_api_wait() {
 fetch_token() {
   info "Fetching rke2 join token..."
 
-  aws configure set default.region "$(curl -s http://169.254.169.254/latest/meta-data/placement/region)"
+  TOKEN=$(curl -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+  aws configure set default.region "$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/placement/region)"
 
   # Validate aws caller identity, fatal if not valid
   if ! aws sts get-caller-identity 2>/dev/null; then
@@ -147,26 +150,18 @@ upload() {
   sed "s/127.0.0.1/${server_url}/g" /etc/rancher/rke2/rke2.yaml | aws s3 cp - "s3://${token_bucket}/rke2.yaml" --content-type "text/yaml"
 }
 
-pre_userdata() {
-  info "Beginning user defined pre userdata"
-  ${pre_userdata}
-  info "Beginning user defined pre userdata"
-}
-
-post_userdata() {
-  info "Beginning user defined post userdata"
-  ${post_userdata}
-  info "Ending user defined post userdata"
-}
-
 {
-  pre_userdata
-
+  info "Beginning rke2-init userdata"
   config
   fetch_token
 
   if [ $CCM = "true" ]; then
-    append_config 'cloud-provider-name: "aws"'
+    if [ $CCM_EXTERNAL = "true" ]; then
+      append_config 'cloud-provider-name: "external"'
+      append_config 'disable-cloud-controller: "true"'
+    else
+      append_config 'cloud-provider-name: "aws"'
+    fi
   fi
 
   if [ $TYPE = "server" ]; then
@@ -186,17 +181,21 @@ EOF
 
     systemctl enable rke2-server
     systemctl daemon-reload
-    systemctl start rke2-server
+
 
     export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
     export PATH=$PATH:/var/lib/rancher/rke2/bin
 
     if [ $SERVER_TYPE = "leader" ]; then
+      systemctl start rke2-server
+
       # Upload kubeconfig to s3 bucket
       upload
 
       # For servers, wait for apiserver to be ready before continuing so that `post_userdata` can operate on the cluster
       local_cp_api_wait
+    elif ${rke2_start}; then
+      systemctl start rke2-server
     fi
 
   else
@@ -205,8 +204,10 @@ EOF
     # Default to agent
     systemctl enable rke2-agent
     systemctl daemon-reload
-    systemctl start rke2-agent
+    if ${rke2_start}; then
+      systemctl start rke2-agent
+    fi
   fi
+  info "Ending rke2-init userdata"
 
-  post_userdata
 }

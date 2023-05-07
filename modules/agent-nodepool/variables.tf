@@ -61,6 +61,12 @@ variable "block_device_mappings" {
   }
 }
 
+variable "extra_cloud_config_config" {
+  description = "extra config to append to cloud-config"
+  type        = string
+  default     = ""
+}
+
 variable "extra_block_device_mappings" {
   description = "Used to specify additional block device mapping configurations"
   type        = list(map(string))
@@ -71,15 +77,17 @@ variable "extra_block_device_mappings" {
 variable "asg" {
   description = "Node pool AutoScalingGroup scaling definition"
   type = object({
-    min     = number
-    max     = number
-    desired = number
+    min                  = number
+    max                  = number
+    desired              = number
+    termination_policies = list(string)
   })
 
   default = {
-    min     = 1
-    max     = 10
-    desired = 1
+    min                  = 1
+    max                  = 10
+    desired              = 1
+    termination_policies = ["Default"]
   }
 }
 
@@ -93,6 +101,17 @@ variable "extra_security_group_ids" {
   description = "List of additional security group IDs"
   type        = list(string)
   default     = []
+}
+
+variable "metadata_options" {
+  type = map(any)
+  default = {
+    http_endpoint               = "enabled"
+    http_tokens                 = "required" # IMDS-v2
+    http_put_response_hop_limit = 2          # allow pods to use IMDS as well
+    instance_metadata_tags      = "disabled"
+  }
+  description = "Instance Metadata Options"
 }
 
 #
@@ -159,4 +178,34 @@ variable "wait_for_capacity_timeout" {
   description = "How long Terraform should wait for ASG instances to be healthy before timing out."
   type        = string
   default     = "10m"
+}
+
+variable "ccm_external" {
+  description = "Set kubelet arg 'cloud-provider-name' value to 'external'.  Requires manual install of CCM."
+  type        = bool
+  default     = false
+}
+
+variable "rke2_start" {
+  description = "Start/Stop value for the rke2-server/agent service.  True=start, False= don't start."
+  type        = bool
+  default     = true
+}
+
+variable "rke2_install_script_url" {
+  description = "URL for RKE2 install script"
+  type        = string
+  default     = "https://get.rke2.io"
+}
+
+variable "awscli_url" {
+  description = "URL for awscli zip file"
+  type        = string
+  default     = "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip"
+}
+
+variable "unzip_rpm_url" {
+  description = "URL path to unzip rpm"
+  type        = string
+  default     = ""
 }

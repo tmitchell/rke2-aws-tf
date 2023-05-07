@@ -5,9 +5,26 @@ resource "aws_s3_bucket" "bucket" {
   tags = merge({}, var.tags)
 }
 
+resource "aws_s3_bucket_ownership_controls" "bucket_ownership_controls" {
+  bucket = aws_s3_bucket.bucket.id
+
+  rule {
+    object_ownership = "BucketOwnerPreferred"
+  }
+
+  depends_on = [
+    aws_s3_bucket.bucket
+  ]
+}
+
 resource "aws_s3_bucket_acl" "acl" {
+  count  = var.create_acl ? 1 : 0
   bucket = aws_s3_bucket.bucket.id
   acl    = "private"
+
+  depends_on = [
+    aws_s3_bucket_ownership_controls.bucket_ownership_controls
+  ]
 }
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "ssec" {
@@ -20,7 +37,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "ssec" {
   }
 }
 
-resource "aws_s3_bucket_object" "token" {
+resource "aws_s3_object" "token" {
   bucket                 = aws_s3_bucket.bucket.id
   key                    = "token"
   content_type           = "text/plain"
@@ -33,7 +50,7 @@ data "aws_iam_policy_document" "getter" {
     effect  = "Allow"
     actions = ["s3:GetObject"]
     resources = [
-      "${aws_s3_bucket.bucket.arn}/${aws_s3_bucket_object.token.id}",
+      "${aws_s3_bucket.bucket.arn}/${aws_s3_object.token.id}",
     ]
   }
 }
@@ -46,4 +63,42 @@ data "aws_iam_policy_document" "setter" {
       "${aws_s3_bucket.bucket.arn}/rke2.yaml",
     ]
   }
+}
+
+data "aws_iam_policy_document" "deny_insecure_transport" {
+  count = var.attach_deny_insecure_transport_policy ? 1 : 0
+
+  statement {
+    sid    = "denyInsecureTransport"
+    effect = "Deny"
+
+    actions = [
+      "s3:*",
+    ]
+
+    resources = [
+      aws_s3_bucket.bucket.arn,
+      "${aws_s3_bucket.bucket.arn}/*",
+    ]
+
+    principals {
+      type        = "*"
+      identifiers = ["*"]
+    }
+
+    condition {
+      test     = "Bool"
+      variable = "aws:SecureTransport"
+      values = [
+        "false"
+      ]
+    }
+  }
+}
+
+resource "aws_s3_bucket_policy" "this" {
+  count = var.attach_deny_insecure_transport_policy ? 1 : 0
+
+  bucket = aws_s3_bucket.bucket.id
+  policy = data.aws_iam_policy_document.deny_insecure_transport[0].json
 }

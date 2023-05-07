@@ -11,11 +11,23 @@ resource "aws_security_group" "this" {
 # Launch template
 #
 resource "aws_launch_template" "this" {
-  name                   = "${var.name}-rke2-nodepool"
-  image_id               = var.ami
-  instance_type          = var.instance_type
-  user_data              = var.userdata
-  vpc_security_group_ids = concat([aws_security_group.this.id], var.vpc_security_group_ids)
+  name          = "${var.name}-rke2-nodepool"
+  image_id      = var.ami
+  instance_type = var.instance_type
+  user_data     = var.userdata
+
+  metadata_options {
+    http_endpoint               = var.metadata_options["http_endpoint"]
+    http_tokens                 = var.metadata_options["http_tokens"]
+    http_put_response_hop_limit = var.metadata_options["http_put_response_hop_limit"]
+    instance_metadata_tags      = var.metadata_options["instance_metadata_tags"]
+  }
+
+  network_interfaces {
+    associate_public_ip_address = var.associate_public_ip_address
+    delete_on_termination       = true
+    security_groups             = concat(var.vpc_security_group_ids, [aws_security_group.this.id])
+  }
 
   block_device_mappings {
     device_name = lookup(var.block_device_mappings, "device_name", "/dev/sda1")
@@ -58,9 +70,10 @@ resource "aws_autoscaling_group" "this" {
   name                = "${var.name}-rke2-nodepool"
   vpc_zone_identifier = var.subnets
 
-  min_size         = var.asg.min
-  max_size         = var.asg.max
-  desired_capacity = var.asg.desired
+  min_size             = var.asg.min
+  max_size             = var.asg.max
+  desired_capacity     = var.asg.desired
+  termination_policies = var.asg.termination_policies
 
   # Health check and target groups dependent on whether we're a server or not (identified via rke2_url)
   health_check_type         = var.health_check_type

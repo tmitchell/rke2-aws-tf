@@ -76,7 +76,7 @@ variable "extra_block_device_mappings" {
 variable "servers" {
   description = "Number of servers to create"
   type        = number
-  default     = 1
+  default     = 3
 }
 
 variable "spot" {
@@ -124,6 +124,17 @@ variable "controlplane_access_logs_bucket" {
   default     = "disabled"
 }
 
+variable "metadata_options" {
+  type = map(any)
+  default = {
+    http_endpoint               = "enabled"
+    http_tokens                 = "required" # IMDS-v2
+    http_put_response_hop_limit = 2          # allow pods to use IMDS as well
+    instance_metadata_tags      = "disabled"
+  }
+  description = "Instance Metadata Options"
+}
+
 #
 # RKE2 Variables
 #
@@ -163,8 +174,71 @@ variable "enable_ccm" {
   default     = false
 }
 
+variable "ccm_external" {
+  description = "Set kubelet arg 'cloud-provider-name' value to 'external'.  Requires manual install of CCM."
+  type        = bool
+  default     = false
+}
+
 variable "wait_for_capacity_timeout" {
   description = "How long Terraform should wait for ASG instances to be healthy before timing out."
   type        = string
   default     = "10m"
+}
+
+variable "associate_public_ip_address" {
+  default = false
+  type    = bool
+}
+
+variable "extra_cloud_config_config" {
+  description = "extra config to append to cloud-config"
+  type        = string
+  default     = ""
+}
+
+variable "rke2_install_script_url" {
+  description = "URL for RKE2 install script"
+  type        = string
+  default     = "https://get.rke2.io"
+}
+
+variable "awscli_url" {
+  description = "URL for awscli zip file"
+  type        = string
+  default     = "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip"
+}
+
+variable "unzip_rpm_url" {
+  description = "URL path to unzip rpm"
+  type        = string
+  default     = ""
+}
+
+variable "rke2_start" {
+  description = "Start/Stop value for the rke2-server/agent service.  This will prevent the service from starting until the next reboot. True=start, False= don't start."
+  type        = bool
+  default     = true
+}
+
+variable "termination_policies" {
+  description = "List of policies to decide how the instances in the Auto Scaling Group should be terminated"
+  type        = list(string)
+  default     = ["Default"]
+}
+
+#
+### Statestore Variables
+#
+
+variable "statestore_attach_deny_insecure_transport_policy" {
+  description = "Toggle for enabling s3 policy to reject non-SSL requests"
+  type        = bool
+  default     = true
+}
+
+variable "create_acl" {
+  description = "Toggle creation of ACL for statestore bucket"
+  type        = bool
+  default     = true
 }

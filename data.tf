@@ -8,10 +8,12 @@ module "init" {
   pre_userdata  = var.pre_userdata
   post_userdata = var.post_userdata
   ccm           = var.enable_ccm
+  ccm_external  = var.ccm_external
   agent         = false
+  rke2_start    = var.rke2_start
 }
 
-data "template_cloudinit_config" "this" {
+data "cloudinit_config" "this" {
   gzip          = true
   base64_encode = true
 
@@ -20,27 +22,40 @@ data "template_cloudinit_config" "this" {
     filename     = "cloud-config.yaml"
     content_type = "text/cloud-config"
     content = templatefile("${path.module}/modules/nodepool/files/cloud-config.yaml", {
-      ssh_authorized_keys = var.ssh_authorized_keys
+      ssh_authorized_keys       = var.ssh_authorized_keys
+      extra_cloud_config_config = var.extra_cloud_config_config
     })
   }
-
+  part {
+    filename     = "00_pre.sh"
+    content_type = "text/x-shellscript"
+    content      = module.init.pre_templated
+  }
   dynamic "part" {
     for_each = var.download ? [1] : []
     content {
-      filename     = "00_download.sh"
+      filename     = "10_download.sh"
       content_type = "text/x-shellscript"
       content = templatefile("${path.module}/modules/common/download.sh", {
         # Must not use `version` here since that is reserved
-        rke2_version = var.rke2_version
-        type         = "server"
+        rke2_version            = var.rke2_version
+        type                    = "server"
+        rke2_install_script_url = var.rke2_install_script_url
+        awscli_url              = var.awscli_url
+        unzip_rpm_url           = var.unzip_rpm_url
       })
     }
   }
 
   part {
-    filename     = "01_rke2.sh"
+    filename     = "20_rke2.sh"
     content_type = "text/x-shellscript"
-    content      = module.init.templated
+    content      = module.init.rke2_templated
+  }
+  part {
+    filename     = "99_post.sh"
+    content_type = "text/x-shellscript"
+    content      = module.init.post_templated
   }
 }
 

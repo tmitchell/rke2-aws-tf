@@ -6,5 +6,5 @@ ssh_authorized_keys:
 
 users:
   - default
-  
+
 ${extra_cloud_config_config}

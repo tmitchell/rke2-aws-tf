@@ -66,10 +66,12 @@ module "init" {
   pre_userdata  = var.pre_userdata
   post_userdata = var.post_userdata
   ccm           = var.enable_ccm
+  ccm_external  = var.ccm_external
   agent         = true
+  rke2_start    = var.rke2_start
 }
 
-data "template_cloudinit_config" "init" {
+data "cloudinit_config" "init" {
   gzip          = true
   base64_encode = true
 
@@ -77,28 +79,44 @@ data "template_cloudinit_config" "init" {
   part {
     filename     = "cloud-config.yaml"
     content_type = "text/cloud-config"
-    content = templatefile("${path.module}/../nodepool/files/cloud-config.yaml", {
-      ssh_authorized_keys = var.ssh_authorized_keys
+    content = templatefile("${path.module}/files/cloud-config.yaml", {
+      ssh_authorized_keys       = var.ssh_authorized_keys,
+      extra_cloud_config_config = var.extra_cloud_config_config
     })
+  }
+  part {
+    filename     = "00_pre.sh"
+    content_type = "text/x-shellscript"
+    content      = module.init.pre_templated
   }
 
   dynamic "part" {
     for_each = var.download ? [1] : []
     content {
-      filename     = "00_download.sh"
+      filename     = "10_download.sh"
       content_type = "text/x-shellscript"
       content = templatefile("${path.module}/../common/download.sh", {
         # Must not use `version` here since that is reserved
         rke2_version = var.rke2_version
         type         = "agent"
+
+        rke2_install_script_url = var.rke2_install_script_url
+        awscli_url              = var.awscli_url
+        unzip_rpm_url           = var.unzip_rpm_url
+
       })
     }
   }
 
   part {
-    filename     = "01_rke2.sh"
+    filename     = "20_rke2.sh"
     content_type = "text/x-shellscript"
-    content      = module.init.templated
+    content      = module.init.rke2_templated
+  }
+  part {
+    filename     = "99_post.sh"
+    content_type = "text/x-shellscript"
+    content      = module.init.post_templated
   }
 }
 
@@ -116,11 +134,12 @@ module "nodepool" {
   block_device_mappings       = var.block_device_mappings
   extra_block_device_mappings = var.extra_block_device_mappings
   vpc_security_group_ids      = concat([var.cluster_data.cluster_sg], var.extra_security_group_ids)
-  userdata                    = data.template_cloudinit_config.init.rendered
+  userdata                    = data.cloudinit_config.init.rendered
   iam_instance_profile        = var.iam_instance_profile == "" ? module.iam[0].iam_instance_profile : var.iam_instance_profile
   asg                         = var.asg
   spot                        = var.spot
   wait_for_capacity_timeout   = var.wait_for_capacity_timeout
+  metadata_options            = var.metadata_options
 
   tags = merge({
     "Role" = "agent",
